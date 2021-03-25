@@ -2,94 +2,65 @@ version: '3'
 
 services:
   db:
+    container_name: nextcloud_db
     image: mariadb
     command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW
     restart: always
     volumes:
-      - db:/var/lib/mysql
+      - ./data/db:/var/lib/mysql
     environment:
-      - MYSQL_ROOT_PASSWORD=
-    env_file:
-      - db.env
+      - MYSQL_ROOT_PASSWORD
 
   redis:
+    container_name: nextcloud_redis
     image: redis:alpine
     restart: always
 
   app:
+    container_name: nextcloud_app
     image: nextcloud:fpm-alpine
     restart: always
     volumes:
-      - nextcloud:/var/www/html
+      - ./data/html:/var/www/html
     environment:
       - MYSQL_HOST=db
       - REDIS_HOST=redis
-    env_file:
-      - db.env
     depends_on:
       - db
       - redis
 
   web:
+    container_name: nextcloud_web
     build: ./web
     restart: always
     volumes:
-      - nextcloud:/var/www/html:ro
+      - ./data/html:/var/www/html:ro
     environment:
-      - VIRTUAL_HOST=
-      - LETSENCRYPT_HOST=
-      - LETSENCRYPT_EMAIL=
+      - VIRTUAL_HOST
+      - LETSENCRYPT_HOST=${VIRTUAL_HOST}
     depends_on:
       - app
     networks:
-      - proxy-tier
-      - default
-
+      default:
+      nginx-proxy:
+        aliases:
+          - ${VIRTUAL_HOST}
+  
   cron:
+    container_name: nextcloud_cron
     image: nextcloud:fpm-alpine
     restart: always
     volumes:
-      - nextcloud:/var/www/html
+      - ./data/html:/var/www/html
     entrypoint: /cron.sh
     depends_on:
       - db
       - redis
 
-  proxy:
-    build: ./proxy
-    restart: always
-    ports:
-      - 80:80
-      - 443:443
-    labels:
-      com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy: "true"
-    volumes:
-      - certs:/etc/nginx/certs:ro
-      - vhost.d:/etc/nginx/vhost.d
-      - html:/usr/share/nginx/html
-      - /var/run/docker.sock:/tmp/docker.sock:ro
-    networks:
-      - proxy-tier
-
-  letsencrypt-companion:
-    image: jrcs/letsencrypt-nginx-proxy-companion
-    restart: always
-    volumes:
-      - certs:/etc/nginx/certs
-      - vhost.d:/etc/nginx/vhost.d
-      - html:/usr/share/nginx/html
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks:
-      - proxy-tier
-    depends_on:
-      - proxy
-
 volumes:
   db:
   nextcloud:
-  certs:
-  vhost.d:
-  html:
 
 networks:
-  proxy-tier:
+  nginx-proxy:
+    external: true

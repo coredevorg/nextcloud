@@ -7,9 +7,12 @@ services:
     command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW
     restart: always
     volumes:
-      - ./data/db:/var/lib/mysql
+      - db:/var/lib/mysql
     environment:
       - MYSQL_ROOT_PASSWORD
+      - MYSQL_DATABASE
+      - MYSQL_USER
+      - MYSQL_PASSWORD
 
   redis:
     container_name: nextcloud_redis
@@ -21,10 +24,13 @@ services:
     image: nextcloud:fpm-alpine
     restart: always
     volumes:
-      - ./data/html:/var/www/html
+      - html:/var/www/html
     environment:
-      - MYSQL_HOST=db
       - REDIS_HOST=redis
+      - MYSQL_HOST=db
+      - MYSQL_DATABASE
+      - MYSQL_USER
+      - MYSQL_PASSWORD
     depends_on:
       - db
       - redis
@@ -34,7 +40,7 @@ services:
     build: ./web
     restart: always
     volumes:
-      - ./data/html:/var/www/html:ro
+      - html:/var/www/html:ro
     environment:
       - VIRTUAL_HOST
       - LETSENCRYPT_HOST=${VIRTUAL_HOST}
@@ -51,7 +57,7 @@ services:
     image: nextcloud:fpm-alpine
     restart: always
     volumes:
-      - ./data/html:/var/www/html
+      - html:/var/www/html
     entrypoint: /cron.sh
     depends_on:
       - db
@@ -59,7 +65,7 @@ services:
 
 volumes:
   db:
-  nextcloud:
+  html:
 
 networks:
   nginx-proxy:
